@@ -15,7 +15,7 @@ function sleep(ms: number): Promise<void> {
 export function createLearningServer(session: SessionModel): McpServer {
   const server = new McpServer(
     {
-      name: 'learning-http-stateful-server',
+      name: 'example-mcp-stateful',
       version: '2.0.0-alpha.0',
     },
     {

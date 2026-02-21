@@ -1,11 +1,11 @@
 {
-  "name": "mcp-http-stateful-v2-boilerplate",
+  "name": "example-mcp-stateful",
   "version": "2.0.0-alpha.0",
   "description": "Learning-first MCP HTTP Stateful boilerplate + project generator CLI (official SDK v2 pre-release)",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp-http-stateful-starter": "dist/cli/index.js"
+    "mcp-stateful-starter": "dist/cli/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

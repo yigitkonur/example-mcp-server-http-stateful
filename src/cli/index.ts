@@ -18,15 +18,15 @@ interface TemplateVariables {
 }
 
 function printUsage(): void {
-  console.log(`mcp-http-stateful-starter
+  console.log(`mcp-stateful-starter
 
 Usage:
-  mcp-http-stateful-starter init <project-name> [--force] [--sdk vendored|registry] [--dir <path>]
+  mcp-stateful-starter init <project-name> [--force] [--sdk vendored|registry] [--dir <path>]
 
 Examples:
-  mcp-http-stateful-starter init my-mcp-app
-  mcp-http-stateful-starter init my-mcp-app --sdk registry
-  mcp-http-stateful-starter init my-mcp-app --dir ./playground --force`);
+  mcp-stateful-starter init my-mcp-app
+  mcp-stateful-starter init my-mcp-app --sdk registry
+  mcp-stateful-starter init my-mcp-app --dir ./playground --force`);
 }
 
 function sanitizePackageName(rawName: string): string {

@@ -2,7 +2,7 @@
 
 The repository ships a built-in project scaffolder:
 
-- command name: `mcp-http-stateful-starter`
+- command name: `mcp-stateful-starter`
 - implementation: `src/cli/index.ts`
 
 ## Generate a Project

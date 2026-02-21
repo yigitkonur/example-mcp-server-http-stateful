@@ -17,7 +17,7 @@ Full history: `CHANGELOG.md`.
 ## What This Repository Provides
 
 - runnable reference server (`src/`)
-- scaffold creator CLI (`mcp-http-stateful-starter`)
+- scaffold creator CLI (`mcp-stateful-starter`)
 - project templates (`templates/http-stateful/`)
 - docs for setup, architecture, v2 migration context, and verification (`docs/`)
 

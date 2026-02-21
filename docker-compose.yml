@@ -1,7 +1,7 @@
 services:
   mcp-server:
     build: .
-    container_name: mcp-http-stateful-v2
+    container_name: example-mcp-stateful
     ports:
       - '1453:1453'
     environment:
