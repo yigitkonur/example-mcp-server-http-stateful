@@ -4,32 +4,28 @@ node_modules/
 # Build output
 dist/
 
-# Environment variables
+# TypeScript cache
+*.tsbuildinfo
+
+# Environment files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Logs
+# Logs and caches
 *.log
-
-# TypeScript build cache
-*.tsbuildinfo
-
-# Tool caches
 .npm
 .eslintcache
 .prettiercache
 
-# OS files
+# OS and editor files
 .DS_Store
 ._*
 Thumbs.db
-
-# IDE files
 .vscode/
 .idea/
 
-# Docker secrets
-*.secret
+# Local MCP CLI config
+mcp_servers.json

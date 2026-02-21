@@ -1,0 +1,29 @@
+# __PROJECT_NAME__
+
+Stateful MCP Streamable HTTP starter built for SDK v2 pre-release.
+
+## Run
+
+```bash
+npm install
+npm run dev
+```
+
+Server starts at `http://127.0.0.1:1453/mcp` by default.
+
+## What this starter demonstrates
+
+- Stateful session lifecycle (`POST /mcp`, `GET /mcp`, `DELETE /mcp`)
+- Per-session transport reuse with `NodeStreamableHTTPServerTransport`
+- In-memory `EventStore` for SSE resumability (`Last-Event-Id`)
+- v2 `registerTool`, `registerResource`, and `registerPrompt` APIs
+
+## Extend
+
+- Add your own domain tools in `src/index.ts`
+- Replace in-memory session/event storage with Redis or another durable store
+- Add your own auth middleware in front of `/mcp`
+
+## Important
+
+This project targets MCP TypeScript SDK v2 pre-release. APIs may still change.

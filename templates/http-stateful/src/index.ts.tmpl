@@ -1,0 +1,482 @@
+import { randomUUID } from 'node:crypto';
+
+import { NodeStreamableHTTPServerTransport } from '@modelcontextprotocol/node';
+import {
+  McpServer,
+  ResourceTemplate,
+  type EventStore,
+  type JSONRPCMessage,
+  isInitializeRequest,
+  localhostAllowedHostnames,
+  validateHostHeader,
+} from '@modelcontextprotocol/server';
+import cors from 'cors';
+import express from 'express';
+import type { Request, Response } from 'express';
+import * as z from 'zod/v4';
+
+interface SessionData {
+  id: string;
+  createdAt: number;
+  lastActivity: number;
+  requestCount: number;
+  notes: string[];
+}
+
+interface SessionRuntime {
+  data: SessionData;
+  server: McpServer;
+  transport: NodeStreamableHTTPServerTransport;
+}
+
+class InMemoryEventStore implements EventStore {
+  private readonly events = new Map<string, { streamId: string; message: JSONRPCMessage; createdAt: number }>();
+  private readonly idsByStream = new Map<string, string[]>();
+  private sequence = 0;
+
+  constructor(private readonly maxCount: number, private readonly maxAgeMs: number) {}
+
+  async storeEvent(streamId: string, message: JSONRPCMessage): Promise<string> {
+    this.sequence += 1;
+    const eventId = `${Date.now()}-${this.sequence.toString(36)}`;
+
+    this.events.set(eventId, {
+      streamId,
+      message,
+      createdAt: Date.now(),
+    });
+
+    const list = this.idsByStream.get(streamId) ?? [];
+    list.push(eventId);
+    this.idsByStream.set(streamId, list);
+
+    this.prune();
+    return eventId;
+  }
+
+  async getStreamIdForEventId(eventId: string): Promise<string | undefined> {
+    return this.events.get(eventId)?.streamId;
+  }
+
+  async replayEventsAfter(
+    lastEventId: string,
+    { send }: { send: (eventId: string, message: JSONRPCMessage) => Promise<void> },
+  ): Promise<string> {
+    const anchor = this.events.get(lastEventId);
+    if (!anchor) {
+      throw new Error(`Unknown Last-Event-Id: ${lastEventId}`);
+    }
+
+    const streamEventIds = this.idsByStream.get(anchor.streamId) ?? [];
+    const anchorIndex = streamEventIds.indexOf(lastEventId);
+
+    if (anchorIndex < 0) {
+      throw new Error(`Expired Last-Event-Id: ${lastEventId}`);
+    }
+
+    for (const eventId of streamEventIds.slice(anchorIndex + 1)) {
+      const event = this.events.get(eventId);
+      if (event) {
+        await send(eventId, event.message);
+      }
+    }
+
+    return anchor.streamId;
+  }
+
+  private prune(): void {
+    const cutoff = Date.now() - this.maxAgeMs;
+
+    for (const [eventId, event] of this.events) {
+      if (event.createdAt >= cutoff) {
+        break;
+      }
+      this.remove(eventId, event.streamId);
+    }
+
+    while (this.events.size > this.maxCount) {
+      const first = this.events.entries().next().value as
+        | [string, { streamId: string; message: JSONRPCMessage; createdAt: number }]
+        | undefined;
+      if (!first) {
+        break;
+      }
+      const [eventId, event] = first;
+      this.remove(eventId, event.streamId);
+    }
+  }
+
+  private remove(eventId: string, streamId: string): void {
+    this.events.delete(eventId);
+    const list = this.idsByStream.get(streamId);
+    if (!list) {
+      return;
+    }
+
+    const filtered = list.filter(id => id !== eventId);
+    if (filtered.length === 0) {
+      this.idsByStream.delete(streamId);
+      return;
+    }
+
+    this.idsByStream.set(streamId, filtered);
+  }
+}
+
+const app = express();
+const sessions = new Map<string, SessionRuntime>();
+
+const port = Number.parseInt(process.env['PORT'] ?? '1453', 10);
+const host = process.env['HOST'] ?? '127.0.0.1';
+const sessionTtlMs = Number.parseInt(process.env['SESSION_TTL_MS'] ?? '1800000', 10);
+const eventMaxCount = Number.parseInt(process.env['EVENT_MAX_COUNT'] ?? '3000', 10);
+const eventMaxAgeMs = Number.parseInt(process.env['EVENT_MAX_AGE_MS'] ?? '86400000', 10);
+
+const allowedHosts = (process.env['ALLOWED_HOSTS'] ?? '')
+  .split(',')
+  .map(item => item.trim())
+  .filter(Boolean);
+const effectiveAllowedHosts = allowedHosts.length > 0 ? allowedHosts : localhostAllowedHostnames();
+
+app.use(express.json({ limit: '1mb' }));
+app.use(
+  cors({
+    origin: '*',
+    exposedHeaders: ['Mcp-Session-Id', 'Last-Event-Id', 'Mcp-Protocol-Version'],
+  }),
+);
+
+app.use((req, res, next) => {
+  const hostValidation = validateHostHeader(req.headers.host, effectiveAllowedHosts);
+  if (!hostValidation.ok) {
+    res.status(403).json({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: hostValidation.message },
+      id: null,
+    });
+    return;
+  }
+
+  next();
+});
+
+function asyncRoute(
+  handler: (req: Request, res: Response) => Promise<void>,
+): (req: Request, res: Response) => void {
+  return (req, res) => {
+    void handler(req, res);
+  };
+}
+
+function touch(sessionId: string): void {
+  const runtime = sessions.get(sessionId);
+  if (!runtime) {
+    return;
+  }
+
+  runtime.data.lastActivity = Date.now();
+  runtime.data.requestCount += 1;
+}
+
+async function closeSession(sessionId: string): Promise<void> {
+  const runtime = sessions.get(sessionId);
+  if (!runtime) {
+    return;
+  }
+
+  sessions.delete(sessionId);
+  runtime.transport.onclose = undefined;
+  await Promise.allSettled([runtime.transport.close(), runtime.server.close()]);
+}
+
+function createServer(data: SessionData): McpServer {
+  const server = new McpServer(
+    {
+      name: '__PROJECT_NAME__',
+      version: '0.1.0',
+    },
+    {
+      capabilities: { logging: {} },
+    },
+  );
+
+  server.registerTool(
+    'add_note',
+    {
+      description: 'Store a note in this session.',
+      inputSchema: z.object({
+        note: z.string().min(1).max(500),
+      }),
+    },
+    async ({ note }) => {
+      data.notes.unshift(note.trim());
+      data.notes = data.notes.slice(0, 50);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Stored note #${data.notes.length}`,
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    'list_notes',
+    {
+      description: 'List all notes in this session.',
+      inputSchema: z.object({}),
+    },
+    async () => ({
+      content: [
+        {
+          type: 'text',
+          text:
+            data.notes.length === 0
+              ? 'No notes yet.'
+              : data.notes.map((note, index) => `${index + 1}. ${note}`).join('\n'),
+        },
+      ],
+    }),
+  );
+
+  server.registerResource(
+    'session-info',
+    'session://info',
+    { mimeType: 'application/json' },
+    async uri => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: 'application/json',
+          text: JSON.stringify(
+            {
+              sessionId: data.id,
+              createdAt: data.createdAt,
+              requestCount: data.requestCount,
+              noteCount: data.notes.length,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    }),
+  );
+
+  server.registerResource(
+    'session-note',
+    new ResourceTemplate('session://note/{index}', {
+      list: async () => ({
+        resources: data.notes.map((_, index) => ({
+          uri: `session://note/${index}`,
+          name: `Note ${index + 1}`,
+        })),
+      }),
+    }),
+    { mimeType: 'text/plain' },
+    async (uri, vars) => {
+      const index = Number.parseInt(String(vars['index']), 10);
+      if (Number.isNaN(index) || index < 0 || index >= data.notes.length) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: 'text/plain',
+              text: 'Note not found.',
+            },
+          ],
+        };
+      }
+
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'text/plain',
+            text: data.notes[index] ?? '',
+          },
+        ],
+      };
+    },
+  );
+
+  return server;
+}
+
+function createRuntime(): SessionRuntime {
+  const id = randomUUID();
+  const now = Date.now();
+
+  const data: SessionData = {
+    id,
+    createdAt: now,
+    lastActivity: now,
+    requestCount: 0,
+    notes: [],
+  };
+
+  const server = createServer(data);
+  const transport = new NodeStreamableHTTPServerTransport({
+    sessionIdGenerator: () => id,
+    eventStore: new InMemoryEventStore(eventMaxCount, eventMaxAgeMs),
+    onsessionclosed: async closedId => {
+      await closeSession(closedId);
+    },
+  });
+
+  return { data, server, transport };
+}
+
+app.post(
+  '/mcp',
+  asyncRoute(async (req, res) => {
+    try {
+      const sessionId = req.header('mcp-session-id');
+
+      if (sessionId) {
+        const runtime = sessions.get(sessionId);
+        if (!runtime) {
+          res.status(404).json({
+            jsonrpc: '2.0',
+            error: { code: -32001, message: 'Session not found' },
+            id: null,
+          });
+          return;
+        }
+
+        touch(sessionId);
+        await runtime.transport.handleRequest(req, res, req.body);
+        return;
+      }
+
+      if (!isInitializeRequest(req.body)) {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          error: {
+            code: -32000,
+            message: 'Send initialize first (without Mcp-Session-Id), then reuse session id.',
+          },
+          id: null,
+        });
+        return;
+      }
+
+      const runtime = createRuntime();
+      sessions.set(runtime.data.id, runtime);
+      touch(runtime.data.id);
+
+      await runtime.server.connect(runtime.transport);
+      await runtime.transport.handleRequest(req, res, req.body);
+    } catch (error) {
+      console.error('POST /mcp failed:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error' },
+          id: null,
+        });
+      }
+    }
+  }),
+);
+
+app.get(
+  '/mcp',
+  asyncRoute(async (req, res) => {
+    try {
+      const sessionId = req.header('mcp-session-id');
+      if (!sessionId) {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Missing Mcp-Session-Id' },
+          id: null,
+        });
+        return;
+      }
+
+      const runtime = sessions.get(sessionId);
+      if (!runtime) {
+        res.status(404).json({
+          jsonrpc: '2.0',
+          error: { code: -32001, message: 'Session not found' },
+          id: null,
+        });
+        return;
+      }
+
+      touch(sessionId);
+      await runtime.transport.handleRequest(req, res);
+    } catch (error) {
+      console.error('GET /mcp failed:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error' },
+          id: null,
+        });
+      }
+    }
+  }),
+);
+
+app.delete(
+  '/mcp',
+  asyncRoute(async (req, res) => {
+    try {
+      const sessionId = req.header('mcp-session-id');
+      if (!sessionId) {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Missing Mcp-Session-Id' },
+          id: null,
+        });
+        return;
+      }
+
+      const runtime = sessions.get(sessionId);
+      if (!runtime) {
+        res.status(404).json({
+          jsonrpc: '2.0',
+          error: { code: -32001, message: 'Session not found' },
+          id: null,
+        });
+        return;
+      }
+
+      await runtime.transport.handleRequest(req, res);
+    } catch (error) {
+      console.error('DELETE /mcp failed:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error' },
+          id: null,
+        });
+      }
+    }
+  }),
+);
+
+app.get('/health', (_req, res) => {
+  res.json({
+    ok: true,
+    mode: 'stateful-streamable-http',
+    activeSessions: sessions.size,
+  });
+});
+
+setInterval(() => {
+  const now = Date.now();
+  for (const runtime of sessions.values()) {
+    if (now - runtime.data.lastActivity > sessionTtlMs) {
+      void closeSession(runtime.data.id);
+    }
+  }
+}, 60_000).unref();
+
+app.listen(port, host, () => {
+  console.log(`__PROJECT_NAME__ listening on http://${host}:${String(port)}`);
+});

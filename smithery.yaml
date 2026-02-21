@@ -1,65 +1,37 @@
-# smithery.yaml
-id: calculator-learning-demo-streamable-http
-name: Calculator Learning Demo (Streamable HTTP)
-description: Comprehensive MCP server demonstrating stateful calculator tools with hybrid Redis/in-memory storage over Streamable HTTP.
-repository: https://github.com/modelcontextprotocol/servers/tree/main/src/streamable-http
+id: mcp-http-stateful-v2-boilerplate
+name: MCP HTTP Stateful v2 Boilerplate
+description: Learning-first MCP Streamable HTTP stateful server + CLI starter, aligned to official TypeScript SDK v2 pre-release primitives.
+repository: https://github.com/yigitkonur/example-mcp-server-http-stateful
 license: MIT
 
 startCommand:
   type: streamable_http
   command: node
-  args: ['dist/server.js']
+  args: ['dist/index.js']
   cwd: ./
   port: 1453
 
-# Per-session configuration schema - Smithery will prompt users for these values
 configSchema:
   type: object
   properties:
     PORT:
       type: string
-      title: Server Port
-      description: Port for the HTTP server (default 1453)
       default: '1453'
-    SESSION_TIMEOUT:
+      title: Server Port
+    HOST:
       type: string
-      title: Session Timeout
-      description: Session timeout in minutes (default 30)
-      default: '30'
-    RATE_LIMIT_MAX:
+      default: '0.0.0.0'
+      title: Bind Host
+    SESSION_TTL_MS:
       type: string
-      title: Rate Limit Max
-      description: Maximum requests per window (default 1000)
-      default: '1000'
-    RATE_LIMIT_WINDOW:
+      default: '1800000'
+      title: Session TTL (ms)
+    EVENT_MAX_COUNT:
       type: string
-      title: Rate Limit Window
-      description: Rate limit window in minutes (default 15)
-      default: '15'
-    LOG_LEVEL:
+      default: '5000'
+      title: Max Stored Events
+    EVENT_MAX_AGE_MS:
       type: string
-      title: Log Level
-      enum: ['debug', 'info', 'warn', 'error']
-      default: 'info'
-      description: Logging verbosity level
-    USE_REDIS:
-      type: string
-      title: Use Redis
-      enum: ['true', 'false']
-      default: 'false'
-      description: Enable Redis for distributed storage (requires Redis instance)
-    REDIS_URL:
-      type: string
-      title: Redis URL
-      description: Redis connection URL (only used if USE_REDIS=true)
-      default: 'redis://localhost:6379'
-    CORS_ORIGIN:
-      type: string
-      title: CORS Origin
-      description: Allowed CORS origin (default allows all)
-      default: '*'
-    SAMPLE_TOOL_NAME:
-      type: string
-      title: Sample Tool Name
-      description: Optional educational tool name for learning purposes
+      default: '86400000'
+      title: Event Max Age (ms)
   required: []

@@ -1,12 +1,13 @@
-// eslint.config.mjs
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
   {
-    files: ['**/*.{ts,tsx}'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'templates/**', 'vendor/**'],
+  },
+  {
+    files: ['src/**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -21,13 +22,17 @@ export default [
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': [
         'error',
-        { checksVoidReturn: { attributes: false } },
+        {
+          checksVoidReturn: {
+            attributes: false,
+          },
+        },
       ],
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': ['warn', { allow: ['log', 'warn', 'error'] }],
       'no-debugger': 'error',
     },
   },
