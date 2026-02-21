@@ -1,30 +1,28 @@
 # Getting Started
 
-## Prerequisites
+## 1. Prerequisites
 
 - Node.js 20+
 - npm
 
-## Install and Run
+## 2. Install and Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Endpoints
+## 3. Default Endpoints
 
-- `POST /mcp` - initialize and normal JSON-RPC requests
-- `GET /mcp` - SSE stream endpoint (stateful transport)
-- `DELETE /mcp` - terminate session
-- `GET /health` - health status
+- `POST /mcp` - JSON-RPC requests (initialize + normal operations)
+- `GET /mcp` - SSE stream endpoint
+- `DELETE /mcp` - explicit session termination
+- `GET /health` - service health
 - `GET /sessions` - active session summaries
 
-Default base URL:
+Base URL by default: `http://127.0.0.1:1453`
 
-- `http://127.0.0.1:1453`
-
-## Environment
+## 4. Environment Variables
 
 See `.env.example`:
 
@@ -34,7 +32,7 @@ See `.env.example`:
 - `CORS_ORIGIN`
 - `ALLOWED_HOSTS`
 
-## Validate Locally
+## 5. Local Verification
 
 ```bash
 npm run check
@@ -42,8 +40,14 @@ npm run build
 npm run smoke
 ```
 
-or all at once:
+or run all in one command:
 
 ```bash
 npm run ci
 ```
+
+## Next
+
+- For project generation: `docs/scaffold-cli.md`
+- For protocol details: `docs/http-stateful-v2-deep-dive.md`
+- For full test framework: `docs/testing-and-validation.md`

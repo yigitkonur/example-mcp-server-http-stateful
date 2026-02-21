@@ -1,30 +1,44 @@
-# SDK v2 Notes (Practical)
+# SDK v2 Notes and Limitations
 
-## Current State
+## Current Target
 
-This project targets MCP TypeScript SDK v2 pre-release APIs on the `main` branch of the official SDK repository.
+This boilerplate targets MCP TypeScript SDK v2 pre-release APIs from the official SDK `main` branch.
 
-## Key v2 Shifts Used Here
+## v2 Concepts Used in This Repository
 
-- package split (server/client/core model)
-- Node HTTP transport via `@modelcontextprotocol/node`
-- `NodeStreamableHTTPServerTransport` in stateful mode
-- registration APIs (`registerTool`, `registerResource`, `registerPrompt`)
+- `@modelcontextprotocol/server` for server primitives
+- `@modelcontextprotocol/node` for Node HTTP transport adapter
+- stateful transport via `NodeStreamableHTTPServerTransport`
+- explicit registration APIs:
+  - `registerTool`
+  - `registerResource`
+  - `registerPrompt`
 
-## What Was Intentionally Removed vs Older Patterns
+## Deliberate Non-Usage (Compared to Older Patterns)
 
-- no usage of `@modelcontextprotocol/sdk` monolithic imports
+- no monolithic `@modelcontextprotocol/sdk` imports
 - no server-side SDK auth helpers
-- no server SSE transport implementation path
+- no server-side SSE transport implementation path
 
-## Pre-release Limitation Handling
+## Practical Limitation: Package Availability
 
-In some environments, npm resolution for v2 split packages may vary.
+Because v2 is pre-release, package availability may vary by environment.
 
-This repo handles that by vendoring official packed artifacts and wiring dependencies to those tarballs by default.
+To keep this project reproducible, dependencies default to vendored official tarballs under:
+
+- `vendor/mcp-sdk-v2/`
+
+## Migration Mindset
+
+If you're migrating from v1-style code, expect to update:
+
+- imports and package names
+- transport initialization model
+- handler registration style
+- context usage within handlers
 
 ## Official References
 
-- SDK repo: <https://github.com/modelcontextprotocol/typescript-sdk>
+- SDK repository: <https://github.com/modelcontextprotocol/typescript-sdk>
 - migration guide: <https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/migration.md>
 - server guide: <https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/server.md>

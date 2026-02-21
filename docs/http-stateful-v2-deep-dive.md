@@ -1,60 +1,60 @@
 # HTTP Stateful v2 Deep Dive
 
-This document explains the stateful Streamable HTTP behavior implemented in this repository.
+This guide describes the protocol-level behavior implemented by this repository.
 
 ## Changelog Context
 
-The current behavior reflects the **2026-02-21 major rewrite for SDK v2**.
+Current behavior reflects the `2026-02-21` v2 major rewrite (see `../CHANGELOG.md`).
 
-## Transport Model in This Project
+## Transport and Session Model
 
-- transport: `NodeStreamableHTTPServerTransport`
-- mode: stateful (`sessionIdGenerator` is set)
-- session lifecycle mapped to:
+- transport class: `NodeStreamableHTTPServerTransport`
+- mode: stateful (`sessionIdGenerator` enabled)
+- lifecycle endpoints:
   - `POST /mcp`
   - `GET /mcp`
   - `DELETE /mcp`
 
 ## Session Lifecycle
 
-1. Client sends `initialize` via `POST /mcp` without `Mcp-Session-Id`.
-2. Server creates runtime state and transport.
-3. Response includes `Mcp-Session-Id` header.
-4. Client reuses the same session ID for subsequent POST/GET/DELETE requests.
+1. Client sends `initialize` over `POST /mcp` without `Mcp-Session-Id`.
+2. Server creates runtime state and binds a transport instance.
+3. Response includes `Mcp-Session-Id`.
+4. Client reuses that session ID for subsequent requests.
 
-## Resumability
+## Resumability Model
 
-This server enables resumability with an in-memory `EventStore`.
+Resumability is enabled with an in-memory `EventStore` implementation:
 
 - SSE events are stored with event IDs.
-- reconnecting GET requests can send `Last-Event-Id`.
-- server replays missed events after the given event ID.
+- Client can reconnect using `Last-Event-Id`.
+- Server replays missed events after the anchor ID.
 
-## Why In-Memory Here
+## Endpoint Expectations
 
-This is a learning boilerplate, so stores are intentionally in-memory and simple.
+### `POST /mcp`
 
-For production, replace session and event storage with durable systems (e.g., Redis-backed implementations).
+- JSON-RPC payload.
+- initialize allowed without session header.
+- follow-up requests require `Mcp-Session-Id`.
 
-## Request Expectations
+### `GET /mcp`
 
-### POST `/mcp`
+- opens SSE stream.
+- requires `Mcp-Session-Id`.
+- optional `Last-Event-Id` for replay.
 
-- JSON-RPC body
-- initialize without session header for first request
-- session header required for follow-up requests
+### `DELETE /mcp`
 
-### GET `/mcp`
+- closes active session and transport state.
 
-- opens SSE channel for server-to-client stream behavior
-- same `Mcp-Session-Id` required
-- optional `Last-Event-Id` for replay
+## Why In-Memory Stores Here
 
-### DELETE `/mcp`
+This is a learning boilerplate, so session and event storage are intentionally simple and local.
 
-- terminates active session
+For production-grade deployments, replace with durable storage strategies.
 
-## Related Code
+## Source Code Pointers
 
 - `src/http/createHttpApp.ts`
 - `src/state/sessionRegistry.ts`

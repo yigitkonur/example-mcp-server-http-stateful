@@ -2,38 +2,40 @@
 
 Learning-first boilerplate for building **stateful MCP servers over Streamable HTTP** with official MCP TypeScript SDK v2 pre-release primitives.
 
-This repository provides:
-
-- a runnable reference server (`src/`)
-- a scaffold creator CLI (`mcp-http-stateful-starter`)
-- starter templates for generating new projects (`templates/http-stateful/`)
-
 ## Changelog (Latest First)
 
 ### 2026-02-21 - Major Rewrite for Upcoming TypeScript SDK v2
 
-- Full migration from old v1-style architecture to v2 primitives.
-- Switched to `@modelcontextprotocol/server` + `@modelcontextprotocol/node`.
-- Rebuilt runtime around stateful Streamable HTTP (`POST`/`GET`/`DELETE /mcp`).
+- Migrated from legacy v1-style code to v2 server/node primitives.
+- Rebuilt runtime around stateful Streamable HTTP lifecycle (`POST`/`GET`/`DELETE /mcp`).
 - Added scaffold creator CLI and starter templates.
-- Added dedicated v2 docs and deep-dive notes.
+- Added full documentation set and protocol/testing guides.
 - Kept installs reproducible with vendored official v2 pre-release tarballs.
 
-Full details: `CHANGELOG.md`.
+Full history: `CHANGELOG.md`.
 
-## About SDK v2 (Proper Context)
+## What This Repository Provides
 
-MCP TypeScript SDK v2 is currently pre-release on `main` and differs significantly from v1:
+- runnable reference server (`src/`)
+- scaffold creator CLI (`mcp-http-stateful-starter`)
+- project templates (`templates/http-stateful/`)
+- docs for setup, architecture, v2 migration context, and verification (`docs/`)
 
-- package split: server/client/core (plus runtime adapters like node)
-- server HTTP transport changed to `NodeStreamableHTTPServerTransport`
-- handler and registration style centered on `registerTool` / `registerResource` / `registerPrompt`
-- server-side SDK auth exports removed; auth should be external middleware
-- server-side standalone SSE transport removed; Streamable HTTP is the migration path
+## SDK v2 Context
+
+This project targets MCP TypeScript SDK **v2 pre-release** (`main` branch in the official SDK repository).
+
+Key v2 shifts reflected here:
+
+- package split (`server`/`client`/`core` model)
+- Node HTTP transport via `NodeStreamableHTTPServerTransport`
+- registration APIs (`registerTool`, `registerResource`, `registerPrompt`)
+- server-side SDK auth exports removed (auth should be external middleware)
+- server-side SSE transport removed (Streamable HTTP is the path)
 
 Official references:
 
-- SDK repository: <https://github.com/modelcontextprotocol/typescript-sdk>
+- SDK repo: <https://github.com/modelcontextprotocol/typescript-sdk>
 - migration guide: <https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/migration.md>
 - server guide: <https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/server.md>
 
@@ -44,7 +46,7 @@ npm install
 npm run dev
 ```
 
-Endpoints:
+Default endpoints:
 
 - MCP: `http://127.0.0.1:1453/mcp`
 - health: `http://127.0.0.1:1453/health`
@@ -52,13 +54,13 @@ Endpoints:
 
 ## Scaffold Creator CLI
 
-Create a new starter project:
+Generate a new starter project:
 
 ```bash
 npm run create -- init my-mcp-app
 ```
 
-or from compiled output:
+or from built output:
 
 ```bash
 node dist/cli/index.js init my-mcp-app
@@ -72,43 +74,34 @@ npm run create -- init my-mcp-app --dir ./playground
 npm run create -- init my-mcp-app --sdk registry
 ```
 
-- default mode is `--sdk vendored` for reproducibility
-- `--sdk registry` expects your environment to resolve v2 pre-release packages
+- default mode is `--sdk vendored` (recommended for reproducibility)
+- `--sdk registry` uses `2.0.0-alpha.0` package versions directly
 
-## v2 Packaging Note
+## Documentation
 
-To keep this project reproducible while v2 is pre-release, this repo vendors official tarballs:
+Start here: `docs/README.md`
+
+- setup and local run: `docs/getting-started.md`
+- scaffold usage: `docs/scaffold-cli.md`
+- v2 notes and limitations: `docs/v2-sdk-notes.md`
+- protocol behavior: `docs/http-stateful-v2-deep-dive.md`
+- test/verification framework: `docs/testing-and-validation.md`
+
+## v2 Packaging Strategy
+
+Because v2 is pre-release, this project vendors official package tarballs:
 
 - `vendor/mcp-sdk-v2/modelcontextprotocol-server-2.0.0-alpha.0.tgz`
 - `vendor/mcp-sdk-v2/modelcontextprotocol-node-2.0.0-alpha.0.tgz`
 
-Pinned source commit: `c4ee360aac7afd2964785abac379a290d0c9847a` (SDK main branch, 2026-02-20).
+Pinned source commit: `c4ee360aac7afd2964785abac379a290d0c9847a` (SDK main, 2026-02-20).
 
-## Docs
-
-- docs index: `docs/README.md`
-- getting started: `docs/getting-started.md`
-- scaffold CLI guide: `docs/scaffold-cli.md`
-- v2 SDK notes: `docs/v2-sdk-notes.md`
-- protocol deep dive: `docs/http-stateful-v2-deep-dive.md`
-
-## Validation Scripts
+## Validation Commands
 
 - `npm run check` - typecheck + lint + format check
 - `npm run build` - compile TypeScript
 - `npm run smoke` - end-to-end MCP smoke test
 - `npm run ci` - check + build + smoke
-
-## MCP CLI Verification
-
-This server and scaffold output were verified using `mcp-cli`:
-
-1. connect and inventory: `mcp-cli info <server>`
-2. inspect tool schemas: `mcp-cli info <server> <tool>`
-3. run valid and invalid tool calls: `mcp-cli call <server> <tool> '<json>'`
-4. run with fresh sessions after rebuilds: `MCP_NO_DAEMON=1 ...`
-
-`mcp-cli` is tool-focused, so resources/prompts/session lifecycle were additionally validated with direct JSON-RPC HTTP tests in a persistent session.
 
 ## License
 

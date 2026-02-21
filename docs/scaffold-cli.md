@@ -1,25 +1,25 @@
 # Scaffold Creator CLI
 
-This repo includes a project generator CLI:
+The repository ships a built-in project scaffolder:
 
 - command name: `mcp-http-stateful-starter`
-- source: `src/cli/index.ts`
+- implementation: `src/cli/index.ts`
 
-## Usage
+## Generate a Project
 
-From repo scripts:
+From source scripts:
 
 ```bash
 npm run create -- init my-mcp-app
 ```
 
-From built output:
+From compiled CLI:
 
 ```bash
 node dist/cli/index.js init my-mcp-app
 ```
 
-Help:
+CLI help:
 
 ```bash
 node dist/cli/index.js --help
@@ -28,48 +28,43 @@ node dist/cli/index.js --help
 ## Options
 
 - `--force`
-  Allow generating into an existing non-empty target directory.
+  Allow generation in a non-empty target directory.
 - `--dir <path>`
-  Base directory where the project folder will be created.
+  Set base output directory for the project folder.
 - `--sdk vendored|registry`
-  Dependency strategy for SDK v2 packages.
+  Select SDK dependency strategy.
 
 ## SDK Modes
 
-### `vendored` (default)
+### `vendored` (default, recommended)
 
-Copies:
+Copies vendored tarballs into generated project:
 
-- `vendor/mcp-sdk-v2/modelcontextprotocol-server-2.0.0-alpha.0.tgz`
-- `vendor/mcp-sdk-v2/modelcontextprotocol-node-2.0.0-alpha.0.tgz`
+- `modelcontextprotocol-server-2.0.0-alpha.0.tgz`
+- `modelcontextprotocol-node-2.0.0-alpha.0.tgz`
 
-into the generated project and wires `package.json` to local tarball paths.
-
-Use this mode when you need deterministic installs while v2 is pre-release.
+Use when you want deterministic installs during v2 pre-release.
 
 ### `registry`
 
-Writes semver package deps (`2.0.0-alpha.0`) for `@modelcontextprotocol/server` and `@modelcontextprotocol/node`.
+Writes direct semver dependencies (`2.0.0-alpha.0`) for `@modelcontextprotocol/server` and `@modelcontextprotocol/node`.
 
-Use this only if your npm environment resolves these pre-release packages.
+Use only if your npm environment resolves those pre-release packages.
 
-## Generated Structure
+## Generated Structure (Expected)
 
-The generated project includes:
-
-- `src/index.ts` (runnable stateful Streamable HTTP server)
-- `package.json`, `tsconfig.json`
-- `.env.example`, `.gitignore`
+- `src/index.ts`
+- `package.json`
+- `tsconfig.json`
+- `.env.example`
 - `README.md`
-- optional `vendor/mcp-sdk-v2/` folder (vendored mode)
+- optional `vendor/mcp-sdk-v2/` (vendored mode)
 
-## Validation Result
+## Validation Checklist for Generated Project
 
-Most recent local validation in this repository:
+1. `npm install`
+2. `npm run typecheck`
+3. `npm run build`
+4. run server and check `GET /health`
 
-1. CLI generated project successfully.
-2. Generated project passed:
-   - `npm install`
-   - `npm run typecheck`
-   - `npm run build`
-3. Generated project server returned healthy response from `/health`.
+See `docs/testing-and-validation.md` for a full verification sequence.
